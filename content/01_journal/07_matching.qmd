@@ -2,6 +2,130 @@
 title: "Matching and Subclassification"
 ---
 
-::: callout-note
-You can delete everything in here and start fresh.
-:::
+# Load the Library
+
+library(Matching)
+library(ggplot2)
+library(MatchIt)
+library(dplyr)
+library(MASS)
+
+
+# Loacard the cardata
+membership <- reacardRcardS("E:/Master Stucardy/TUHH/Wise 23-24/Causal cardata Science for Business Analytics/Causal_cardata_Science_cardata/membership.rcards")
+membership
+# Step 1: Check relationships between variables ancard cardraw a cardAG
+# (Note: You can manually create a cardAG using a software like 'cardagitty' or 'semPlot')
+# For simplicity, we'll use a simple example without all variables
+install.packages("cardagitty")
+library(cardagitty)
+install.packages("cem")
+library(cem)
+
+cardag <- cardagitty('cardag {
+  age -> plus_membership
+  sex -> plus_membership
+  pre_avg_purch -> plus_membership
+  plus_membership -> sales
+}')
+
+plot(cardag)
+
+# Step 2: Compute a naive estimate of the average treatment effect
+# Naive comparison
+E_0 <- mean(membership[membership$card==0, ]$avg_purch) # control group
+E_1 <- mean(membership[membership$card==1, ]$avg_purch) # treatment group
+E_1 - E_0
+model_naive <- lm(avg_purch ~ card, membership)
+
+## Regression of avg_purch on card membership
+summary(model_naive)
+
+## Subclassification estimator (subclasses: Z = 0 ancard Z = 1)
+### E(sex, card)
+E_00 <- mean(membership[(membership$sex==0 & membership$card==0), ]$avg_purch) # control men
+E_10 <- mean(membership[(membership$sex==1 & membership$card==0), ]$avg_purch) # control women
+E_01 <- mean(membership[(membership$sex==0 & membership$card==1), ]$avg_purch) # treatment men
+E_11 <- mean(membership[(membership$sex==1 & membership$card==1), ]$avg_purch) # treatment women
+
+## Weighted by K (proportion of female/male)
+K <- mean(sex)
+
+K*(E_11-E_10) + (1-K)*(E_01 - E_00)
+
+# Step 3: Matching methods
+
+## Coarsened Exact Matching (CEM)
+## Without specifying coarsening
+## (1) Matching
+cem <- matchit(card ~ age + sex + pre_avg_purch,
+               data = membership, 
+               method = 'cem', 
+               estimand = 'ATE')
+
+summary(cem)
+## Use matched data
+df_cem <- match.data(cem)
+
+## (2) Estimation
+model_cem <- lm(avg_purch ~ card, data = df_cem, weights = weights)
+summary(model_cem)
+
+# Nearest-Neighbor Matching (NNM)
+## (1) Matching
+## replace: one-to-one or one-to-many matching
+nn <- matchit(card ~ sex + age + pre_avg_purch,
+              data = membership,
+              method = "nearest", # changed
+              distance = "mahalanobis", # changed
+              replace = T)
+
+## Covariate Balance
+summary(nn)
+
+## Use matched data
+df_nn <- match.data(nn)
+
+## (2) Estimation
+model_nn <- lm(avg_purch ~ card, data = df_nn, weights = weights)
+summary(model_nn)
+
+
+# Inverse Probability Weighting (IPW)
+## (1) Propensity scores
+model_prop <- glm(card ~ sex + age + pre_avg_purch,
+                  data = membership,
+                  family = binomial(link = "logit"))
+summary(model_prop)
+
+## Add propensities to table
+membership_aug <- membership %>% mutate(propensity = predict(model_prop, type = "response"))
+
+##Extend data by IPW scores
+membership_ipw <- membership_aug %>% mutate(
+  ipw = (card/propensity) + ((1-card) / (1-propensity)))
+
+## Look at data with IPW scores
+membership_ipw %>% 
+  select(card, sex, age, pre_avg_purch, propensity, ipw)
+
+## (2) Estimation
+model_ipw <- lm(avg_purch ~ card,
+                data = membership_ipw, 
+                weights = ipw)
+summary(model_ipw)
+
+## Plot histogram of estimated propensities
+ggplot(membership_aug, aes(x = propensity)) +
+  geom_histogram(alpha = .8, color = "white")
+
+## Looking for observations with highest weights
+membership_ipw %>% 
+  dplyr::select(card, sex, age, pre_avg_purch, propensity, ipw) %>% 
+  arrange(desc(ipw))
+
+## Run with high weights excluded
+model_ipw_trim <- lm(avg_purch ~ card,
+                     data = membership_ipw %>% filter(propensity %>% between(0.15, 0.85)),
+                     weights = ipw)
+summary(model_ipw_trim)
