@@ -4,14 +4,77 @@ title: "Difference-in-Differences"
 
 # Load required libraries
 library(dplyr)
-library(readr)
+library(tidyverse)
 
 # Load the data
 hospdd <- readRDS("E:/Master Study/TUHH/Wise 23-24/Causal Data Science for Business Analytics/Causal_Data_Science_Data/hospdd.rds")
 hospdd
 
-# Check the structure of the data
-str(hospdd)
+## Check the structure of the data
+head(hospdd)
+
+# Use filter() to subset the data and mean() to calculate the mean of the subset
+mean_satis_newpcd <- hospdd %>%
+  filter(procedure == 1) %>%
+  summarise(mean_value = mean(satis))
+  
+mean_satis_oldpcd <- hospdd %>%
+  filter(procedure == 0) %>%
+  summarise(mean_value = mean(satis))
+
+
+# Compare the result
+cat("Mean of Hospital Satisfaction where new procedure is applied: " , mean_satis_newpcd, "\n")
+print(mean_satis_newpcd)
+print("Mean of Hospital Satisfaction where new procedure is NOT applied")
+print(mean_satis_oldpcd)
+
+
+
+# Function to simulate DiD data
+
+## Function to simulate data
+generate_data <- function(
+    S = 2, # number of groups
+    P = 10, # number of periods
+    D_size = 1, # effect of treatment
+    D_time = NULL, # time of treatment
+    y_0 = 50, # base value for y
+    sd = 1, # standard deviations for randomly generated sequences
+    scenario = c("A", "B")
+){
+  # create group period dyads
+  s <- rep(0:1, each = P)
+  p <- rep(1:P, S)
+  
+  # timing and size of treatment (effect)
+  delta <- D_size
+  if (missing(D_time)) D_time <- P/2
+  after <- as.numeric(ifelse(p > D_time, 1, 0))
+  
+  # create relation between independent variables and treatment (actually
+  # other way round, but easier to simulate this way)
+  x1 <- rnorm(S*P, s, sd)
+  
+  # create dependent variable ...
+  # ... for scenario (A)
+  y_a <- y_0 + delta*s*after + 1/5*p + x1 + rnorm(S*P, 0, sd)
+  
+  # ... for scenario (B)
+  y_b <- y_0 + delta*s*after + 1/5*p + x1 + s*x1 + 1/3*p*x1 + rnorm(S*P, 0, sd)
+  
+  # add variables to table
+  df <- tibble(
+    treat   = s,
+    period  = p,
+    after   = after,
+    x1      = x1,
+    sales   = if (scenario == "A") {y_a} else {y_b}
+  )
+  
+  # return table
+  return(df)
+}
 
 # Convert time variables to factors
 hospdd$month <- as.factor(hospdd$month)
