@@ -32,7 +32,7 @@
     "href": "content/01_journal/09_iv.html",
     "title": "Instrumental Variables",
     "section": "",
-    "text": "#load Library install.packages(CAR) library(car)\n\n1 Load the data\nrand_enc &lt;- readRDS(‘E:/Master Study/TUHH/Wise 23-24/Causal Data Science for Business Analytics/Causal_Data_Science_Data/rand_enc.rds’)\n\n\n2 Compute the naive estimate\nnaive_estimate &lt;- lm(time_spent ~ rand_enc + used_ftr, data = rand_enc) summary(naive_estimate)\n\n\n3 Check assumptions using correlations or plots\ncor(rand_enc\\(time_spent, rand_enc\\)rand_enc) cor(rand_enc\\(used_ftr, rand_enc\\)rand_enc) cor(rand_enc\\(time_spent, rand_enc\\)used_ftr)\nplot(rand_enc\\(time_spent ~ rand_enc\\)rand_enc) plot(rand_enc\\(time_spent ~ rand_enc\\)used_ftr) plot(rand_enc\\(used_ftr ~ rand_enc\\)rand_enc)\n\n\n4 Instrumental Variable Estimation (2SLS)\niv_estimate &lt;- ivreg(time_spent ~ used_ftr | rand_enc ~ instrument, data = rand_enc) summary(iv_estimate)\n\n\n5 Compare naive and IV estimates\nsummary(naive_estimate) summary(iv_estimate)"
+    "text": "#load Library library(tidyverse) library(rdd) library(estimatr)"
   },
   {
     "objectID": "content/01_journal/07_matching.html",
@@ -60,7 +60,7 @@
     "href": "content/01_journal/08_did.html",
     "title": "Difference-in-Differences",
     "section": "",
-    "text": "1 Load required libraries\nlibrary(dplyr) library(readr)\n\n\n2 Load the data\nhospdd &lt;- readRDS(“E:/Master Study/TUHH/Wise 23-24/Causal Data Science for Business Analytics/Causal_Data_Science_Data/hospdd.rds”) hospdd\n\n\n3 Check the structure of the data\nstr(hospdd)\n\n\n4 Convert time variables to factors\nhospdd\\(month &lt;- as.factor(hospdd\\)month) hospdd\\(hospital &lt;- as.factor(hospdd\\)hospital) satisfaction &lt;- hospdd$satis # Manually compute the mean satisfaction for treated and control hospitals before and after the treatment mean_satisfaction &lt;- hospdd %&gt;% group_by(frequency, month) %&gt;% summarise(mean_satisfaction = mean(satisfaction))\n\n\n5 Display the manual computation\nprint(“Manual Computation:”) print(mean_satisfaction)\n\n\n6 Perform difference-in-differences analysis using linear regression\n\n\n7 Include group and time fixed effects\n\n\n8 Option 1: Include as.factor(month) + as.factor(hospital)\nmodel1 &lt;- lm(satisfaction ~ frequency * month + as.factor(month) + as.factor(hospital), data = hospdd)\n\n\n9 Option 2: Include month + hospital\nmodel2 &lt;- lm(satisfaction ~ frequency * month + month + hospital, data = hospdd)\n\n\n10 Display the regression results\nprint(“Linear Regression Results (Option 1):”) summary(model1)\nprint(“Linear Regression Results (Option 2):”) summary(model2)"
+    "text": "1 Load required libraries\nlibrary(dplyr) library(tidyverse)\n\n\n2 Load the data\nhospdd &lt;- readRDS(“E:/Master Study/TUHH/Wise 23-24/Causal Data Science for Business Analytics/Causal_Data_Science_Data/hospdd.rds”)\nhead(hospdd)\n\n\n3 Use filter() to subset the data and mean() to calculate the mean of the subset\nmean_satis_newpcd &lt;- hospdd %&gt;% filter(procedure == 1) %&gt;% summarise(mean_value = mean(satis))\nmean_satis_oldpcd &lt;- hospdd %&gt;% filter(procedure == 0) %&gt;% summarise(mean_value = mean(satis))\n\n\n4 Compare the result\nprint(“Mean of Hospital Satisfaction where new procedure is applied:”) print(mean_satis_newpcd) print(“Mean of Hospital Satisfaction where new procedure is NOT applied”) print(mean_satis_oldpcd)\n\n\n5 Convert time variables to factors\nhospdd\\(month &lt;- as.factor(hospdd\\)month) hospdd\\(hospital &lt;- as.factor(hospdd\\)hospital)\n\n\n6 Perform difference-in-differences analysis using linear regression\n\n\n7 Include group and time fixed effects\n\n\n8 Option 1: Include as.factor(month) + as.factor(hospital)\nmodel1 &lt;- lm(satis ~ frequency * month + as.factor(month) + as.factor(hospital), data = hospdd)\n\n\n9 Option 2: Include month + hospital\nmodel2 &lt;- lm(satis ~ frequency * month + month + hospital, data = hospdd)\n\n\n10 Display the regression results\nprint(“Linear Regression Results (Option 1):”) summary(model1)\nprint(“Linear Regression Results (Option 2):”) summary(model2)"
   },
   {
     "objectID": "content/01_journal/01_probability.html",
@@ -88,7 +88,7 @@
     "href": "content/01_journal/10_rdd.html",
     "title": "Regression Discontinuity",
     "section": "",
-    "text": "Note\n\n\n\nYou can delete everything in here and start fresh."
+    "text": "1 Install and load required packages\nlibrary(tidyverse) library(rddtools) library(rddensity) library(ggthemes) library(scales) library(ggplot2) library(tidyverse)\n\n\n2 Load all data\ncoupon_data &lt;- readRDS(‘E:/Master Study/TUHH/Wise 23-24/Causal Data Science for Business Analytics/Causal_Data_Science_Data/coupon.rds’) head(coupon_data)\nshipping_data &lt;- readRDS(‘E:/Master Study/TUHH/Wise 23-24/Causal Data Science for Business Analytics/Causal_Data_Science_Data/shipping.rds’) head(shipping_data)\n\n\n3 Define cut-off\nc0 &lt;- 60\n\n\n4 Density test\nrddd &lt;- rddensity(coupon_data$days_since_last, c = c0) summary(rddd)\n\n\n5 Visually check continuity at running variable\nrdd_plot &lt;- rdplotdensity(rddd, coupon_data$days_since_last, plotN = 100)\n\n\n6 Specify bandwidth\nbw &lt;- c0 + c(-30, 60)\n\n\n7 Subsets below and above threshold in specified bandwidth\ndf_bw_below &lt;- coupon_data %&gt;% filter(days_since_last &gt;= bw[1] & days_since_last &lt; c0) df_bw_above &lt;- coupon_data %&gt;% filter(days_since_last &gt;= c0 & days_since_last &lt;= bw[2])\n\n\n8 Alternative way to define tables\n\n\n9 df_bw_below &lt;- df %&gt;% filter(days_since_last &gt;= bw[1], days_since_last &lt; c0)\n\n\n10 df_bw_above &lt;- df %&gt;% filter(days_since_last &gt;= c0, days_since_last &lt;= bw[2])\ndf_bw &lt;- bind_rows(df_bw_above, df_bw_below) dim(df_bw)\n\n\n11 Plot dependent variable vs running variable\ndep_var &lt;- ggplot(coupon_data, aes(x = days_since_last, y = purchase_after, color = coupon)) + geom_vline(xintercept = c0, color = “green”) + geom_point(alpha = 0.1, size = 0.2) + # add lines for the full range geom_smooth(data = filter(coupon_data, days_since_last &lt;= c0), method = “lm”, se = F, linewidth = 1, linetype = “dashed”) + geom_smooth(data = filter(coupon_data, days_since_last &gt; c0), method = “lm”, se = F, linewidth = 1, linetype = “dashed”) + # add lines for specified bandwidth geom_smooth(data = df_bw_below, method = “lm”, se = F, color = “green”, linewidth = 2) + geom_smooth(data = df_bw_above, method = “lm”, se = F, color = “green”, linewidth = 2) + scale_color_discrete(labels = c(“No coupon”, “Coupon”)) + xlab(“Days since last purchase”) + ylab(“Purchase after coupon assignment”) + theme(legend.title = element_blank()) dep_var\n\n\n12 [3.2] Local Average treatment effect (LATE) —-\n\n\n13 Extract values for vertical lines to visualize local average treatment effect\nmodel_bw_below &lt;- lm(purchase_after ~ days_since_last, df_bw_below) model_bw_above &lt;- lm(purchase_after ~ days_since_last, df_bw_above)\ny0 &lt;- predict(model_bw_below, tibble(days_since_last = c0)) y1 &lt;- predict(model_bw_above, tibble(days_since_last = c0))\nlate &lt;- y1 - y0 sprintf(“LATE: %.2f”, late)\n\n\n14 Minimum and maximum for y-axis limits\nmin_y &lt;- min(df_bw\\(purchase_after) max_y &lt;- max(df_bw\\)purchase_after)\n\n\n15 Add lines for vertical distance and change limits of x-axis.\ndep_var_bw &lt;- ggplot(df_bw, aes(x = days_since_last, y = purchase_after, color = coupon)) + geom_vline(xintercept = c0, color = “white”, linewidth = 2) + geom_point(alpha = 0.4, size = 1) + geom_smooth(data = df_bw_below, method = “lm”, se = F, linewidth = 2) + geom_smooth(data = df_bw_above, method = “lm”, se = F, linewidth = 2) + geom_segment(aes(x = c0, xend = bw[2], y = y0, yend = y0), linetype = “dotted”, color = “white”) + geom_segment(aes(x = bw[1], xend = c0, y = y1, yend = y1), linetype = “dotted”, color = “white”[4]) + annotate(“text”, x = c0+2, y = mean(c(y1, y0)-2), label = sprintf(“Difference: %.2f”, (y1 - y0)), color = “white”, fontface = 2) + scale_y_continuous(limits = c(min_y, max_y)) + scale_color_discrete(labels = c(“No coupon”, “Coupon”)) + xlab(“Days since last purchase”) + ylab(“Purchase after coupon assignment”) + theme(legend.title = element_blank()) dep_var_bw\nlm_bw &lt;- lm(purchase_after ~ days_since_last_centered + coupon, df_bw) summary(lm_bw)\n\n\n16 Using 30 EUR as a cutoff of running variable\nsummary(shipping_data$purchase_amount)\n\n\n17 Plot the distribution of purchase_amount\nggplot(shipping_data, aes(x = purchase_amount)) + geom_histogram(binwidth = 5, fill = “blue”, color = “black”) + labs(title = “Distribution of Purchase Amount”, x = “Purchase Amount (€)”, y = “Frequency”)\n:::"
   },
   {
     "objectID": "content/01_journal/01_probability.html#compute-probabilities",
@@ -341,5 +341,33 @@
     "title": "Matching and Subsclassifications",
     "section": "7.7 Run with high weights excluded",
     "text": "7.7 Run with high weights excluded\nmodel_ipw_trim &lt;- lm(avg_purch ~ card, data = membership_ipw %&gt;% filter(propensity %&gt;% between(0.15, 0.85)), weights = ipw) summary(model_ipw_trim)"
+  },
+  {
+    "objectID": "content/01_journal/09_iv.html#regression-of-avg_purch-on-card-membership",
+    "href": "content/01_journal/09_iv.html#regression-of-avg_purch-on-card-membership",
+    "title": "Instrumental Variables",
+    "section": "3.1 Regression of avg_purch on card membership",
+    "text": "3.1 Regression of avg_purch on card membership\nsummary(naive_estimate)\nnaive_estimate &lt;- lm(time_spent ~ rand_enc + used_ftr, data = rand_enc) summary(naive_estimate)"
+  },
+  {
+    "objectID": "content/01_journal/09_iv.html#first-stage",
+    "href": "content/01_journal/09_iv.html#first-stage",
+    "title": "Instrumental Variables",
+    "section": "5.1 First stage",
+    "text": "5.1 First stage\nfirst_stage &lt;- lm(used_ftr ~ rand_enc, data = rand_enc) summary(first_stage)"
+  },
+  {
+    "objectID": "content/01_journal/09_iv.html#predicted-probabilities-from-first-stage",
+    "href": "content/01_journal/09_iv.html#predicted-probabilities-from-first-stage",
+    "title": "Instrumental Variables",
+    "section": "5.2 Predicted ‘probabilities’ from first stage",
+    "text": "5.2 Predicted ‘probabilities’ from first stage\npred_fs &lt;- predict(first_stage)"
+  },
+  {
+    "objectID": "content/01_journal/09_iv.html#create-table-with-predictions-and-actual-decisions",
+    "href": "content/01_journal/09_iv.html#create-table-with-predictions-and-actual-decisions",
+    "title": "Instrumental Variables",
+    "section": "5.3 Create table with predictions and actual decisions",
+    "text": "5.3 Create table with predictions and actual decisions\npred_vs_actl &lt;- tibble( pred = pred_fs, actl = rand_enc$used_ftr )"
   }
 ]
