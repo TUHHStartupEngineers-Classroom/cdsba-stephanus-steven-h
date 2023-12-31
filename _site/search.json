@@ -32,7 +32,7 @@
     "href": "content/01_journal/09_iv.html",
     "title": "Instrumental Variables",
     "section": "",
-    "text": "#load Library library(tidyverse) library(rdd) library(estimatr)"
+    "text": "library(tidyverse) library(rdd) library(estimatr)"
   },
   {
     "objectID": "content/01_journal/07_matching.html",
@@ -446,5 +446,26 @@
     "title": "Matching and Subsclassifications",
     "section": "5.4 Inverse Probability Weighting (IPW)",
     "text": "5.4 Inverse Probability Weighting (IPW)\n\n(1) Propensity scores\nmodel_prop &lt;- glm(card ~ sex + age + pre_avg_purch, data = membership, family = binomial(link = “logit”)) summary(model_prop)\n\nAdd propensities to table\nmembership_aug &lt;- membership %&gt;% mutate(propensity = predict(model_prop, type = “response”))\n\n\nExtend data by IPW scores\nmembership_ipw &lt;- membership_aug %&gt;% mutate( ipw = (card/propensity) + ((1-card) / (1-propensity)))\n\n\nLook at data with IPW scores\nmembership_ipw %&gt;% select(card, sex, age, pre_avg_purch, propensity, ipw)\n\n\n\n(2) Estimation\nmodel_ipw &lt;- lm(avg_purch ~ card, data = membership_ipw, weights = ipw) summary(model_ipw)\n\nPlot histogram of estimated propensities\nggplot(membership_aug, aes(x = propensity)) + geom_histogram(alpha = .8, color = “white”)\n\n\nLooking for observations with highest weights\nmembership_ipw %&gt;% dplyr::select(card, sex, age, pre_avg_purch, propensity, ipw) %&gt;% arrange(desc(ipw))\n\n\nRun with high weights excluded\nmodel_ipw_trim &lt;- lm(avg_purch ~ card, data = membership_ipw %&gt;% filter(propensity %&gt;% between(0.15, 0.85)), weights = ipw) summary(model_ipw_trim)"
+  },
+  {
+    "objectID": "content/01_journal/09_iv.html#naive-comparison",
+    "href": "content/01_journal/09_iv.html#naive-comparison",
+    "title": "Instrumental Variables",
+    "section": "4.1 Naive comparison",
+    "text": "4.1 Naive comparison\nE_0 &lt;- mean(rand_enc[rand_enc\\(rand_enc==0, ]\\)time_spent) # control group E_1 &lt;- mean(rand_enc[rand_enc\\(rand_enc==1, ]\\)time_spent) # treatment group E_1 - E_0 naive_estimate &lt;- lm(used_ftr ~ time_spent, data = rand_enc)\n\nRegression of avg_purch on card membership\nsummary(naive_estimate)\nnaive_estimate &lt;- lm(time_spent ~ rand_enc + used_ftr, data = rand_enc) summary(naive_estimate)"
+  },
+  {
+    "objectID": "content/01_journal/09_iv.html#instrumental-variable-estimation-2sls",
+    "href": "content/01_journal/09_iv.html#instrumental-variable-estimation-2sls",
+    "title": "Instrumental Variables",
+    "section": "6.1 Instrumental Variable Estimation (2SLS)",
+    "text": "6.1 Instrumental Variable Estimation (2SLS)\n\nFirst stage\nfirst_stage &lt;- lm(used_ftr ~ rand_enc, data = rand_enc) summary(first_stage)\n\nPredicted ‘probabilities’ from first stage\npred_fs &lt;- predict(first_stage)\n\n\nCreate table with predictions and actual decisions\npred_vs_actl &lt;- tibble( pred = pred_fs, actl = rand_enc$used_ftr )\n\n\nPlot predictions vs original\nggplot(pred_vs_actl, aes(x = pred, y = actl, color = as.factor(actl))) + geom_jitter(alpha = .5) + scale_color_discrete(labels = c(“Control Group”, “Treatment Group”)) + theme(legend.title = element_blank())\n\n\n\nSecond stage\nsecond_stage &lt;- lm(rand_enc\\(time_spent ~ first_stage\\)fitted.values) summary(second_stage)\n\n\nIV Estimate\niv_estimate &lt;- iv_robust(time_spent ~ used_ftr | rand_enc, data = rand_enc) summary(iv_estimate)"
+  },
+  {
+    "objectID": "content/01_journal/09_iv.html#compare-naive-and-iv-estimates",
+    "href": "content/01_journal/09_iv.html#compare-naive-and-iv-estimates",
+    "title": "Instrumental Variables",
+    "section": "6.2 Compare naive and IV estimates",
+    "text": "6.2 Compare naive and IV estimates\nsummary(naive_estimate) summary(iv_estimate)\nprint(“In this case, naive estimation is considered bias based on two reasons. First, the result of time spent isn’t just single factor based on new feature used. And this is proved by the second reason, in which R-squared has low value.”) print(“Naive estimate has a downward bias, by comparing its intercept value versus the difference between control and treatment group”)"
   }
 ]
