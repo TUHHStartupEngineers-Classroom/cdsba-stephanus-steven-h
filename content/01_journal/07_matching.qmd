@@ -16,7 +16,7 @@ library(dagitty)
 membership <- readRDS("E:/Master Study/TUHH/Wise 23-24/Causal data Science for Business Analytics/Causal_data_Science_data/membership.rds")
 membership
 
-
+# Relationship between variables and DAG
 dag <- dagitty('dag {
   age -> card_membership
   sex -> card_membership
@@ -26,21 +26,18 @@ dag <- dagitty('dag {
 
 plot(dag)
 
-# Step 2: Compute a naive estimate of the average treatment effect
-# Naive comparison
+# Compute a naive estimate of the average treatment effect
+## Naive comparison
 E_0 <- mean(membership[membership$card==0, ]$avg_purch) # control group
 E_1 <- mean(membership[membership$card==1, ]$avg_purch) # treatment group
 E_1 - E_0
 model_naive <- lm(avg_purch ~ card, membership)
-
-## Regression of avg_purch on card membership
 summary(model_naive)
 
-# Step 3: Matching methods
-
+# Matching methods to obtain more precise estimates
 ## Coarsened Exact Matching (CEM)
 ## Without specifying coarsening
-## (1) Matching
+### (1) Matching
 cem <- matchit(card ~ age + sex + pre_avg_purch,
                data = membership, 
                method = 'cem', 
@@ -50,64 +47,64 @@ summary(cem)
 ## Use matched data
 df_cem <- match.data(cem)
 
-## (2) Estimation
+### (2) Estimation
 model_cem <- lm(avg_purch ~ card, data = df_cem, weights = weights)
 summary(model_cem)
 
-# Nearest-Neighbor Matching (NNM)
-## (1) Matching
-## replace: one-to-one or one-to-many matching
+## Nearest-Neighbor Matching (NNM)
+### (1) Matching
+#### replace: one-to-one or one-to-many matching
 nn <- matchit(card ~ sex + age + pre_avg_purch,
               data = membership,
               method = "nearest", # changed
               distance = "mahalanobis", # changed
               replace = T)
 
-## Covariate Balance
+#### Covariate Balance
 summary(nn)
 
-## Use matched data
+#### Use matched data
 df_nn <- match.data(nn)
 
-## (2) Estimation
+### (2) Estimation
 model_nn <- lm(avg_purch ~ card, data = df_nn, weights = weights)
 summary(model_nn)
 
 
-# Inverse Probability Weighting (IPW)
-## (1) Propensity scores
+## Inverse Probability Weighting (IPW)
+### (1) Propensity scores
 model_prop <- glm(card ~ sex + age + pre_avg_purch,
                   data = membership,
                   family = binomial(link = "logit"))
 summary(model_prop)
 
-## Add propensities to table
+#### Add propensities to table
 membership_aug <- membership %>% mutate(propensity = predict(model_prop, type = "response"))
 
-##Extend data by IPW scores
+#### Extend data by IPW scores
 membership_ipw <- membership_aug %>% mutate(
   ipw = (card/propensity) + ((1-card) / (1-propensity)))
 
-## Look at data with IPW scores
+#### Look at data with IPW scores
 membership_ipw %>% 
   select(card, sex, age, pre_avg_purch, propensity, ipw)
 
-## (2) Estimation
+### (2) Estimation
 model_ipw <- lm(avg_purch ~ card,
                 data = membership_ipw, 
                 weights = ipw)
 summary(model_ipw)
 
-## Plot histogram of estimated propensities
+#### Plot histogram of estimated propensities
 ggplot(membership_aug, aes(x = propensity)) +
   geom_histogram(alpha = .8, color = "white")
 
-## Looking for observations with highest weights
+#### Looking for observations with highest weights
 membership_ipw %>% 
   dplyr::select(card, sex, age, pre_avg_purch, propensity, ipw) %>% 
   arrange(desc(ipw))
 
-## Run with high weights excluded
+#### Run with high weights excluded
 model_ipw_trim <- lm(avg_purch ~ card,
                      data = membership_ipw %>% filter(propensity %>% between(0.15, 0.85)),
                      weights = ipw)
